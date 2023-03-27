@@ -1,0 +1,13 @@
+# ninja log v5
+0	552	7015887727308217	CMakeFiles/CppLab.dir/library.cpp.obj	2f04775bec1befd1
+2	1271	7015881177001337	GoogleTest/Lib/googletest/CMakeFiles/gtest.dir/src/gtest-all.cc.obj	284da1f32e20627f
+553	578	7015887727559579	CppLab.lib	5ab04dc7fe1b96d1
+1309	1332	7015881177637569	lib/gtest_main.lib	f348be7f5494cb09
+4	764	7015881171948704	GoogleTest/Lib/googletest/CMakeFiles/gtest_main.dir/src/gtest_main.cc.obj	d30fb737c9a076bc
+0	559	7016059328820499	GoogleTest/CMakeFiles/RunTest.dir/DataStructureTest/TestSmallVector.cpp.obj	268d1fc4a25d06db
+1271	1309	7015881177382376	lib/gtest.lib	f0c442028727a14
+560	741	7016059330454346	GoogleTest/RunTest.exe	9cd4a522dc2619c7
+1	11250	7016292595053314	build.ninja	7d0a6aac2a4f177e
+0	11413	7016292595053314	build.ninja	7d0a6aac2a4f177e
+0	881	7016292604851660	GoogleTest/CMakeFiles/RunTest.dir/DataStructureTest/TestSmallVector.cpp.obj	268d1fc4a25d06db
+881	1177	7016292607528865	GoogleTest/RunTest.exe	9cd4a522dc2619c7
