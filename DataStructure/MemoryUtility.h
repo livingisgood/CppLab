@@ -16,7 +16,7 @@ namespace BC
     template<typename T, typename std::enable_if_t<std::is_array<T>::value>* = nullptr>
     void DestroyObject(T& Object) noexcept
     {
-        DestroyRange(Object, Object + std::extent_v<T>);
+        DestroyRange(Object, Object + std::extent<T>::value);
     }
 
     template<typename T, typename std::enable_if_t<!std::is_array<T>::value>* = nullptr>
