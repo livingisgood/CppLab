@@ -1,7 +1,7 @@
-#pragma once
 #include "gtest/gtest.h"
 #include "SmallVector.h"
 #include <vector>
+#include "ContainerInserter.h"
 
 #define SUITE SmallVector
 
@@ -16,6 +16,50 @@ void TestEqual(const std::vector<T>& StdVector, const TSmallVector<T, N>& SmallV
     {
         ASSERT_EQ(StdVector[i], SmallVector[i]);
     }
+}
+
+void AddTen(FContainerInserter<int>& Inserter)
+{
+    for(int i = 0; i < 10; ++i)
+    {
+        Inserter.Insert(i);
+    }
+}
+
+void TestInserter()
+{
+    std::vector<int> VecA;
+    FContainerInserterImpl<decltype(VecA)> Inserter(VecA);
+
+    AddTen(Inserter);
+    for(auto Item : VecA)
+    {
+        std::cout << Item << ",";
+    }
+    std::cout << std::endl;
+
+    TSmallVector<int, 4> VecB;
+    FContainerInserterImpl<decltype(VecB)> Inserter2(VecB);
+
+    AddTen(Inserter2);
+    for(auto Item : VecB)
+    {
+        std::cout << Item << ",";
+    }
+    std::cout << std::endl;
+
+    FPrinter<int> Printer;
+    AddTen(Printer);
+
+    FAccumulator<int> Accumulator;
+    AddTen(Accumulator);
+
+    std::cout << std::endl << Accumulator.GetSum() << std::endl;
+}
+
+TEST(SUITE, Inserter)
+{
+    TestInserter();
 }
 
 template <typename T>
@@ -136,6 +180,17 @@ TEST(SUITE, MoveConstructor)
     TSmallVector<int, 5> VecD(std::move(VecC));
     EXPECT_EQ(VecD.GetCapacity(), 5);
     EXPECT_EQ(VecD.GetHeap(), nullptr);
+
+    TSmallVector<int, 10> VecE = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+    TSmallVector<int, 10> VecF = {1, 2, 3, 4, 5, 6};
+    int VecFSize = VecF.GetSize();
+    VecE = std::move(VecF);
+
+    EXPECT_EQ(VecE.GetSize(), VecFSize);
+    EXPECT_EQ(VecE.GetHeap(), nullptr);
+
+    std::vector<int> StdVec = {1,2,3,4,5,6};
+    TestEqual(StdVec, VecE);
 }
 
 TEST(SUITE, DataLayout)
@@ -151,6 +206,50 @@ TEST(SUITE, DataLayout)
 
     Vec.Add(5);
     EXPECT_NE(Vec.GetHeap(), nullptr);
+}
+
+TEST(SUITE, BackInsert)
+{
+    TSmallVector<int, 5> Vec;
+
+    std::back_insert_iterator<decltype(Vec)> Inserter(Vec);
+
+    for(int i = 0; i < 5; ++i)
+    {
+        Inserter = i;
+        EXPECT_EQ(i, Vec[i]);
+    }
+}
+
+TEST(SUITE, UninitializedAdd)
+{
+    TSmallVector<int, 5> Vec;
+
+    AddUninitialized(Vec, 3);
+
+    EXPECT_EQ(Vec.GetSize(), 3);
+
+    for(int i = 0; i < 3; ++i)
+    {
+        Vec[i] = i;
+    }
+}
+
+TEST(SUITE, ReserveTest)
+{
+    std::vector<int> StdVec = {1, 2, 3};
+    TSmallVector<int, 3> SmallVec = {1, 2, 3};
+
+    SmallVec.Reserve(10);
+    TestEqual(StdVec, SmallVec);
+
+    std::vector<int> StdVec2 = {1, 2, 3, 4, 5};
+    TSmallVector<int, 3> SmallVec2;
+    SmallVec2.Insert(SmallVec2.begin(), StdVec2.begin(), StdVec2.end());
+
+    TestEqual(StdVec2, SmallVec2);
+    SmallVec2.Reserve(100);
+    TestEqual(StdVec2, SmallVec2);
 }
 
 class Foo
@@ -263,3 +362,4 @@ TEST_F(MirrorTest, Misc)
     Mirror.Insert(0, Temp.begin(), Temp.end());
     Mirror.Check();
 }
+

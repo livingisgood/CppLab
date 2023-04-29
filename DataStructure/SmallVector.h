@@ -17,6 +17,7 @@ namespace BC
         using Iterator = T*;
         using ConstIterator = const T*;
         using DifferenceType = std::intptr_t;
+        using value_type = T;
 
         TSmallVector() = default;
 
@@ -32,7 +33,7 @@ namespace BC
 
         TSmallVector(TSmallVector&& Other) noexcept
         {
-            MoveFrom(std::forward<TSmallVector<T, N>>(Other));
+            MoveFrom(std::move(Other));
         }
 
         TSmallVector& operator=(const TSmallVector& Other)
@@ -48,7 +49,7 @@ namespace BC
         {
             if(this != &Other)
             {
-                MoveFrom(std::forward<TSmallVector<T, N>>(Other));
+                MoveFrom(std::move(Other));
             }
             return *this;
         }
@@ -67,12 +68,12 @@ namespace BC
 
         const T* GetData() const
         {
-            return HeapData == nullptr ? reinterpret_cast<const T*>(Storage) : HeapData;
+            return Head;
         }
 
         T* GetData()
         {
-            return HeapData == nullptr ? reinterpret_cast<T*>(Storage) : HeapData;
+            return Head;
         }
 
         const T* GetHeap() const
@@ -113,31 +114,33 @@ namespace BC
             if(RequiredCapacity <= Capacity)
                 return;
 
+            Capacity = CalculateCapacityGrowth(RequiredCapacity);
+
             if(std::is_trivially_copyable<T>::value)  // in cpp17 we can use if constexpr instead of a runtime code path
             {
-                Capacity = CalculateCapacityGrowth(RequiredCapacity);
                 if(HeapData == nullptr)
                 {
-                    HeapData = static_cast<T*>(std::malloc(sizeof(T) * Capacity));
-                    std::memcpy(HeapData, Storage, sizeof(T) * Size);
+                    SetHeap(static_cast<T*>(std::malloc(sizeof(T) * Capacity)));
+
+                    if(Size > 0)
+                        std::memcpy(HeapData, Storage, sizeof(T) * Size);
                 }
                 else
                 {
-                    HeapData = static_cast<T*>(std::realloc(HeapData, sizeof(T) * Capacity));
+                    SetHeap(static_cast<T*>(std::realloc(HeapData, sizeof(T) * Capacity)));
                 }
             }
             else
             {
-                int NewCapacity = CalculateCapacityGrowth(RequiredCapacity);
-                T* NewHeap = static_cast<T*>(std::malloc(sizeof(T) * NewCapacity));
-
-                UninitializedTransferN<T>(GetData(), Size, NewHeap);
+                T* NewHeap = static_cast<T*>(std::malloc(sizeof(T) * Capacity));
 
                 if(Size > 0)
+                {
+                    UninitializedTransferN<T>(GetData(), Size, NewHeap);
                     DestroyRange(GetData(), GetData() + Size);
+                }
 
-                SetHeap(NewHeap);
-                Capacity = NewCapacity;
+                ResetHeap(NewHeap);
             }
         }
 
@@ -171,7 +174,9 @@ namespace BC
                 return;
             }
 
-            ClearAndReserve(DataNum);
+            Clear();
+            Reserve(DataNum);
+
             std::uninitialized_copy_n(Data, DataNum, GetData());
             Size = DataNum;
         }
@@ -197,7 +202,17 @@ namespace BC
         void Add(T&& Item)
         {
             T* InsertPos = MakeRoom(end(), 1);
-            new (InsertPos) T(std::forward<T>(Item));
+            new (InsertPos) T(std::move(Item));
+        }
+
+        void push_back(const T& Item)
+        {
+            Add(Item);
+        }
+
+        void push_back(T&& Item)
+        {
+            Add(std::move(Item));
         }
 
         template<typename... ArgsType>
@@ -285,30 +300,18 @@ namespace BC
             return ErasePos;
         }
 
+        template<class U, int M>
+        friend std::enable_if_t<std::is_trivially_copyable<U>::value> AddUninitialized(TSmallVector<U, M>& Vec, int Num);
+
     private:
 
         void Dispose()
         {
             Clear();
 
-            SetHeap(nullptr);
+            ResetHeap(nullptr);
             Size = 0;
             Capacity = N;
-        }
-
-        void ClearAndReserve(int NewCapacity)
-        {
-            Clear();
-
-            SetHeap(nullptr);
-            Size = 0;
-            Capacity = N;
-
-            if(NewCapacity > N)
-            {
-                Capacity = CalculateCapacityGrowth(NewCapacity);
-                HeapData = static_cast<T*>(std::malloc(Capacity * sizeof(T)));
-            }
         }
 
         void MoveFrom(TSmallVector<T, N>&& Other)
@@ -320,14 +323,15 @@ namespace BC
 
             if(Other.HeapData != nullptr)
             {
-                HeapData = Other.HeapData;
+                SetHeap(Other.HeapData);
+
                 Other.Size = 0;
                 Other.Capacity = N;
-                Other.HeapData = nullptr;
+                Other.SetHeap(nullptr);
             }
             else
             {
-                std::move(Other.Storage, Other.Storage + Size, Storage);
+                UninitializedTransferN(Other.GetData(), Other.Size, GetData());
             }
         }
 
@@ -385,7 +389,7 @@ namespace BC
 
                 DestroyRange(GetData(), GetData() + Size);
 
-                SetHeap(NewHeap);
+                ResetHeap(NewHeap);
                 Capacity = NewCapacity;
                 Size += Count;
 
@@ -393,12 +397,18 @@ namespace BC
             }
         }
 
-        void SetHeap(T* Heap)
+        void ResetHeap(T* Heap)
         {
             if(HeapData != nullptr)
                 std::free(HeapData);
 
+            SetHeap(Heap);
+        }
+
+        void SetHeap(T* Heap)
+        {
             HeapData = Heap;
+            Head = Heap == nullptr? reinterpret_cast<T*>(Storage) : Heap;
         }
 
         int Size { 0 };
@@ -407,5 +417,13 @@ namespace BC
         char Storage[N * sizeof(T)] {};
         T* HeapData { nullptr };
 
+        T* Head {reinterpret_cast<T*>(Storage)};
     };
+
+    template<typename T, int N>
+    std::enable_if_t<std::is_trivially_copyable<T>::value> AddUninitialized(TSmallVector<T, N>& Vec, int Num)
+    {
+        Vec.Reserve(Vec.Size + Num);
+        Vec.Size += Num;
+    }
 }
