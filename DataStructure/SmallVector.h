@@ -33,7 +33,7 @@ namespace BC
 
         TSmallVector(TSmallVector&& Other) noexcept
         {
-            MoveFrom(std::move(Other));
+            MoveFrom(std::forward<TSmallVector<T, N>>(Other));
         }
 
         TSmallVector& operator=(const TSmallVector& Other)
@@ -49,7 +49,7 @@ namespace BC
         {
             if(this != &Other)
             {
-                MoveFrom(std::move(Other));
+                MoveFrom(std::forward<TSmallVector<T, N>>(Other));
             }
             return *this;
         }
@@ -136,7 +136,7 @@ namespace BC
 
                 if(Size > 0)
                 {
-                    UninitializedTransferN<T>(GetData(), Size, NewHeap);
+                    std::uninitialized_move_n(GetData(), Size, NewHeap);
                     DestroyRange(GetData(), GetData() + Size);
                 }
 
@@ -202,7 +202,7 @@ namespace BC
         void Add(T&& Item)
         {
             T* InsertPos = MakeRoom(end(), 1);
-            new (InsertPos) T(std::move(Item));
+            new (InsertPos) T(std::forward<T>(Item));
         }
 
         void push_back(const T& Item)
@@ -280,7 +280,7 @@ namespace BC
                 return ErasePos;
 
             std::move(ErasePos + 1, end(), ErasePos);
-            DestroyObject(*(GetData() + Size - 1));
+            DestroyAt(GetData() + Size - 1);
             --Size;
             return ErasePos;
         }
@@ -301,7 +301,7 @@ namespace BC
         }
 
         template<class U, int M>
-        friend std::enable_if_t<std::is_trivially_copyable<U>::value> AddUninitialized(TSmallVector<U, M>& Vec, int Num);
+        friend std::enable_if_t<std::is_trivially_copyable_v<U>> AddUninitialized(TSmallVector<U, M>& Vec, int Num);
 
     private:
 
@@ -331,7 +331,7 @@ namespace BC
             }
             else
             {
-                UninitializedTransferN(Other.GetData(), Other.Size, GetData());
+                std::uninitialized_move_n(Other.GetData(), Other.Size, GetData());
             }
         }
 
@@ -366,13 +366,13 @@ namespace BC
 
                 if(Count < AffectedNum)
                 {
-                    UninitializedTransferN<T>(OldEnd - Count, Count, OldEnd);
+                    std::uninitialized_move_n(OldEnd - Count, Count, OldEnd);
                     std::move_backward<Iterator>(InsertPos, OldEnd - Count, OldEnd);
                     DestroyRange(InsertPos, InsertPos + Count);
                 }
                 else
                 {
-                    UninitializedTransferN<T>(InsertPos, AffectedNum, InsertPos + Count);
+                    std::uninitialized_move_n(InsertPos, AffectedNum, InsertPos + Count);
                     DestroyRange(InsertPos, InsertPos + AffectedNum);
                 }
 
@@ -384,8 +384,8 @@ namespace BC
                 int NewCapacity = CalculateCapacityGrowth(Size + Count);
                 T* NewHeap = static_cast<T*>(std::malloc(NewCapacity * sizeof(T)));
 
-                UninitializedTransferN<T>(GetData(), Offset, NewHeap);
-                UninitializedTransferN<T>(GetData() + Offset, Size - Offset, NewHeap + Offset + Count);
+                std::uninitialized_move_n(GetData(), Offset, NewHeap);
+                std::uninitialized_move_n(GetData() + Offset, Size - Offset, NewHeap + Offset + Count);
 
                 DestroyRange(GetData(), GetData() + Size);
 
@@ -421,7 +421,7 @@ namespace BC
     };
 
     template<typename T, int N>
-    std::enable_if_t<std::is_trivially_copyable<T>::value> AddUninitialized(TSmallVector<T, N>& Vec, int Num)
+    std::enable_if_t<std::is_trivially_copyable_v<T>> AddUninitialized(TSmallVector<T, N>& Vec, int Num)
     {
         Vec.Reserve(Vec.Size + Num);
         Vec.Size += Num;

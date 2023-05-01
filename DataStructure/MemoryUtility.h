@@ -7,56 +7,31 @@ namespace BC
     template <typename IteratorType>
     using IteratorValueType = typename std::iterator_traits<IteratorType>::value_type;
 
-    template<typename ForwardIt, typename std::enable_if_t<std::is_trivially_destructible<IteratorValueType<ForwardIt>>::value>*>
+    template<typename ForwardIt>
     void DestroyRange(ForwardIt First, ForwardIt Last) noexcept;
 
-    template<typename ForwardIt, typename std::enable_if_t<!std::is_trivially_destructible<IteratorValueType<ForwardIt>>::value>*>
-    void DestroyRange(ForwardIt First, ForwardIt Last) noexcept;
-
-    template<typename T, typename std::enable_if_t<std::is_array<T>::value>* = nullptr>
-    void DestroyObject(T& Object) noexcept
+    template<typename T>
+    void DestroyAt(T* Object)
     {
-        DestroyRange(Object, Object + std::extent<T>::value);
-    }
-
-    template<typename T, typename std::enable_if_t<!std::is_array<T>::value>* = nullptr>
-    void DestroyObject(T& Object) noexcept
-    {
-        Object.~T();
-    }
-
-    template<typename ForwardIt, typename std::enable_if_t<std::is_trivially_destructible<IteratorValueType<ForwardIt>>::value>* = nullptr>
-    void DestroyRange(ForwardIt First, ForwardIt Last) noexcept
-    {
-        // do nothing
-    }
-
-    template<typename ForwardIt, typename std::enable_if_t<!std::is_trivially_destructible<IteratorValueType<ForwardIt>>::value>* = nullptr>
-    void DestroyRange(ForwardIt First, ForwardIt Last) noexcept
-    {
-        for(; First != Last; ++First)
+        if constexpr (std::is_array_v<T>)
         {
-            DestroyObject(*First);
+            DestroyRange(Object, Object + std::extent_v<T>);
+        }
+        else
+        {
+            Object->~T();
         }
     }
 
-    template<typename T, typename SizeType, typename std::enable_if_t<std::is_trivially_copyable<T>::value>* = nullptr>
-    void UninitializedTransferN(T* First, SizeType Count, T* Dest)
+    template<typename ForwardIt>
+    void DestroyRange(ForwardIt First, ForwardIt Last) noexcept
     {
-        if(Count > 0)
-            std::memmove(Dest, First, Count * sizeof(T));
-    }
-
-    template<typename T, typename SizeType, typename std::enable_if_t<!std::is_trivially_copyable<T>::value>* = nullptr>
-    void UninitializedTransferN(T* First, SizeType Count, T* Dest)
-    {
-        if(Count <= 0)
-            return;
-
-        for(SizeType i = 0; i < Count; ++i)
+        if constexpr (!std::is_trivially_destructible_v<IteratorValueType<ForwardIt>>)
         {
-            new (static_cast<void*>(Dest + i)) T(std::move(*(First + i)));
+            for(; First != Last; ++First)
+            {
+                DestroyAt(std::addressof(*First));
+            }
         }
     }
-
 }
