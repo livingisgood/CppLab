@@ -3,6 +3,7 @@
 #include <functional>
 #include <vector>
 #include <memory>
+#include <any>
 #include "DataStructure/IntrusivieList.h"
 
 namespace BC
@@ -14,10 +15,7 @@ namespace BC
 
         ~TEvent()
         {
-            for(auto& Listener : Listeners)
-            {
-                Listener.Keeper.reset();
-            }
+            Clear();
         }
 
         using FFunctor = std::function<void(Args...)>;
@@ -78,6 +76,17 @@ namespace BC
         FHandle Subscribe(const CallerClass* Caller, void (CallerClass::*ConstMember)(ArgTypes...) const)
         {
             return AddListener([Caller,ConstMember](ArgTypes&&...CallArgs){ (Caller->*ConstMember)(std::forward<ArgTypes>(CallArgs)...); });
+        }
+
+        void Clear()
+        {
+            for(auto It = Listeners.begin(); It != Listeners.end();)
+            {
+                FListener& Listener = *It;
+                It = Listeners.Erase(It);
+
+                Listener.Keeper.reset();
+            }
         }
 
     private:
