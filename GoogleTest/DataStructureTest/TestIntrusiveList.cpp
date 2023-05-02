@@ -176,8 +176,41 @@ namespace IntrusiveTest
         {
             EXPECT_TRUE(!Ptr->UnitLink.IsLinked());
         }
+    }
 
-        std::list<int> A;
-        A.end();
+    TEST_F(FObjectList, ForwardDeletion)
+    {
+        IntrusiveList Units;
+        for(auto& Ptr : UnitVec)
+        {
+            Units.PushBack(*Ptr);
+        }
+
+        for(auto It = UnitVec.begin(); It != UnitVec.end();)
+        {
+            if((*It)->Value % 2 == 0)
+            {
+                It = UnitVec.erase(It);
+            }
+            else
+            {
+                ++It;
+            }
+        }
+
+        for(auto& Unit : Units)
+        {
+            if(Unit.Value % 2 == 0)
+            {
+                delete &Unit;
+            }
+        }
+
+        int i = 0;
+        for(auto& Unit : Units)
+        {
+            EXPECT_EQ(&Unit, UnitVec[i]);
+            ++i;
+        }
     }
 }

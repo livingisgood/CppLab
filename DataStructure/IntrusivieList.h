@@ -20,7 +20,7 @@ namespace BC
             TNode(const TNode& Other) = delete;
             TNode& operator=(const TNode& Other) = delete;
 
-            bool IsLinked() const { return Next != nullptr && Owner != nullptr; }
+            bool IsLinked() const { return Prev != nullptr && Owner != nullptr; }
 
             void UnLink()
             {
@@ -48,7 +48,11 @@ namespace BC
 
         public:
 
-            TNodeConstIterator(TNode<T>* Node, TNode<T>* ListHead) : NodePtr(Node), Head(ListHead) {}
+            TNodeConstIterator(TNode<T>* Node, TNode<T>* ListHead) : NodePtr(Node), Head(ListHead)
+            {
+                Next = NodePtr->Next;
+                Prev = NodePtr->Prev;
+            }
 
             const T& operator*() const noexcept
             {
@@ -103,16 +107,26 @@ namespace BC
 
             void MoveForward() noexcept
             {
-                NodePtr = NodePtr->Next;
+                //NodePtr = NodePtr->Next;
+
+                NodePtr = Next;
+                Next = NodePtr->Next;
+                Prev = NodePtr->Prev;
             }
 
             void MoveBackward() noexcept
             {
-                NodePtr = NodePtr->Prev;
+                //NodePtr = NodePtr->Prev;
+
+                NodePtr = Prev;
+                Next = NodePtr->Next;
+                Prev = NodePtr->Prev;
             }
 
         protected:
 
+            TNode<T>* Prev;
+            TNode<T>* Next;
             TNode<T>* NodePtr;
             TNode<T>* Head;
         };

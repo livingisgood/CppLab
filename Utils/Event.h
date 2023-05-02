@@ -44,7 +44,7 @@ namespace BC
         using FHandle = std::shared_ptr<FListener>;
 
         template<typename ...ArgTypes>
-        void Invoke(ArgTypes&&... CallArgs)
+        void Invoke(ArgTypes&&... CallArgs) // 考虑迭代器失效...
         {
             for(auto& Listener : Listeners)
             {
