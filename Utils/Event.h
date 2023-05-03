@@ -1,89 +1,115 @@
 #pragma once
-
 #include <functional>
-#include <vector>
 #include <memory>
-#include <any>
 #include "DataStructure/IntrusivieList.h"
 
 namespace BC
 {
-    template <typename ...Args>
-    class TEvent
+    class FListenerBase
+    {
+        template <typename ...Args> friend class TEvent;
+
+    public:
+
+        virtual ~FListenerBase() = default;
+
+        void UnSubscribe() { bValid = false; }
+
+    private:
+
+        bool bValid {true};
+        std::shared_ptr<FListenerBase> Keeper {this};
+    };
+
+    using FEventHandle = std::shared_ptr<FListenerBase>;
+
+    class FListenerKeeper
     {
     public:
 
-        ~TEvent()
+        ~FListenerKeeper()
         {
-            Clear();
+            for(auto& Listener : Listeners)
+            {
+                if(Listener)
+                    Listener->UnSubscribe();
+            }
         }
 
+        void Keep(const std::shared_ptr<FListenerBase>& Listener)
+        {
+            Listeners.emplace_back(Listener);
+        }
+
+    private:
+        std::vector<std::shared_ptr<FListenerBase>> Listeners;
+    };
+
+    template<typename ...Args>
+    class TEvent
+    {
         using FFunctor = std::function<void(Args...)>;
 
-        class FListener
+        class FListener : public FListenerBase
         {
             friend class TEvent;
 
         public:
 
-            FListener() : Keeper(this) {}
-            Intrusive::TNode<TEvent::FListener> Link {this};
-
-            void Unsubscribe()
-            {
-                Link.UnLink();
-                Keeper.reset();
-            }
-
-        private:
-
-            FFunctor Function;
-            std::shared_ptr<FListener> Keeper;
+            Intrusive::TNode<FListener> Link {this};
+            FFunctor CallBack;
         };
 
-        using FHandle = std::shared_ptr<FListener>;
+    public:
+
+        ~TEvent() { Clear(); }
 
         template<typename ...ArgTypes>
-        void Invoke(ArgTypes&&... CallArgs) // 考虑迭代器失效...
+        void Invoke(ArgTypes&&... CallArgs)
         {
-            for(auto& Listener : Listeners)
+            for(FListener& Listener : ListenerList)
             {
-                Listener.Function(std::forward<ArgTypes>(CallArgs)...);
+                if(Listener.bValid)
+                {
+                    Listener.CallBack(std::forward<ArgTypes>(CallArgs)...);
+                }
+                else
+                {
+                    Listener.Link.UnLink();
+                    Listener.Keeper.reset();
+                }
             }
         }
 
         template<typename ...ArgTypes>
         void operator() (ArgTypes&&... CallArgs)
         {
-            for(auto& Listener : Listeners)
-            {
-                Listener.Function(std::forward<ArgTypes>(CallArgs)...);
-            }
+            Invoke(std::forward<ArgTypes>(CallArgs)...);
         }
 
-        FHandle Subscribe(void (*FreeFunc)(Args...))
+        FEventHandle Subscribe(void (*FreeFunc)(Args...))
         {
             return AddListener(FreeFunc);
         }
 
-        template <class CallerClass, typename ...ArgTypes>
-        FHandle Subscribe(CallerClass* Caller, void (CallerClass::*Member)(ArgTypes...))
+        template <typename CallerClass, typename ...ArgTypes>
+        [[nodiscard]] FEventHandle Subscribe(CallerClass* Caller, void (CallerClass::*Member)(ArgTypes...))
         {
             return AddListener([Caller,Member](ArgTypes&&...CallArgs){ (Caller->*Member)(std::forward<ArgTypes>(CallArgs)...); });
         }
 
-        template <class CallerClass, typename ...ArgTypes>
-        FHandle Subscribe(const CallerClass* Caller, void (CallerClass::*ConstMember)(ArgTypes...) const)
+        template <typename CallerClass, typename ...ArgTypes>
+        [[nodiscard]] FEventHandle Subscribe(const CallerClass* Caller, void (CallerClass::*ConstMember)(ArgTypes...) const)
         {
             return AddListener([Caller,ConstMember](ArgTypes&&...CallArgs){ (Caller->*ConstMember)(std::forward<ArgTypes>(CallArgs)...); });
         }
 
         void Clear()
         {
-            for(auto It = Listeners.begin(); It != Listeners.end();)
+            for(auto It = ListenerList.begin(); It != ListenerList.end(); ++It)
             {
                 FListener& Listener = *It;
-                It = Listeners.Erase(It);
+                ListenerList.Erase(It);
 
                 Listener.Keeper.reset();
             }
@@ -91,16 +117,15 @@ namespace BC
 
     private:
 
-        FHandle AddListener(FFunctor Function)
+        FEventHandle AddListener(FFunctor Function)
         {
-            FListener* Listener = new FListener;
-            Listener->Function = std::move(Function);
+            auto Listener = new FListener;
+            Listener->CallBack = std::move(Function);
 
-            Listeners.PushBack(*Listener);
-
-            return Listener->Keeper;
+            ListenerList.PushBack(*Listener);
+            return std::static_pointer_cast<FListenerBase>(Listener->Keeper);
         }
 
-        Intrusive::TNodeList<TEvent::FListener, &TEvent::FListener::Link> Listeners;
+        Intrusive::TNodeList<FListener, &FListener::Link> ListenerList;
     };
 }

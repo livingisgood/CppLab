@@ -11,29 +11,29 @@ namespace EventTest
         std::cout << "Print " << Value << std::endl;
     }
 
-    class FFoo
+    class FCaller
     {
     public:
 
-        ~FFoo()
+        void Bind(TEvent<int>& Event)
         {
-            if(Handle)
-                Handle->Unsubscribe();
-        }
-
-        void BindEvent(TEvent<int>& Event)
-        {
-            Handle = Event.Subscribe(this, &FFoo::HandleInput);
+            Keeper.Keep(Event.Subscribe(this, &FCaller::CallBackA));
+            Keeper.Keep(Event.Subscribe(this, &FCaller::CallBackB));
         }
 
     private:
 
-        void HandleInput(int Value)
+        void CallBackA(int V)
         {
-            std::cout << "Print " << Value << std::endl;
+            std::cout << "Callback A " << V << std::endl;
         }
 
-        TEvent<int>::FHandle Handle;
+        void CallBackB(int V)
+        {
+            std::cout << "CallBack B " << V << std::endl;
+        }
+
+        FListenerKeeper Keeper;
     };
 
     TEST(EventTest, GlobalSub)
@@ -42,32 +42,42 @@ namespace EventTest
 
         MyEvent.Subscribe(Printer);
         MyEvent(5);
+
+        MyEvent.Clear();
+        MyEvent(4);
     }
 
     TEST(EventTest, GlobalSub2)
     {
         TEvent<int> MyEvent;
 
-        TEvent<int>::FHandle Handle = MyEvent.Subscribe(Printer);
-        MyEvent.Invoke(3);
+        {
+            FListenerKeeper Keeper;
+            Keeper.Keep(MyEvent.Subscribe(Printer));
+            MyEvent.Invoke(5);
+        }
 
-        Handle->Unsubscribe();
-        Handle->Unsubscribe();
-        MyEvent.Invoke(2);
+        MyEvent.Invoke(4);
     }
 
-    TEST(EventTest, unsub)
+    TEST(EventTest, AutoRelease)
     {
-        std::cout << "unsub" << std::endl;
-
         TEvent<int> MyEvent;
 
-        FFoo* Foo = new FFoo;
-        Foo->BindEvent(MyEvent);
-
+        {
+            FCaller Caller;
+            Caller.Bind(MyEvent);
+            MyEvent(3);
+        }
         MyEvent(3);
-        delete Foo;
+    }
 
-        MyEvent(2);
+    TEST(EventTest, AutoReleaseEvent)
+    {
+        FCaller Caller;
+        {
+            TEvent<int> MyEvent;
+            Caller.Bind(MyEvent);
+        }
     }
 }
